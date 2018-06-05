@@ -1,4 +1,4 @@
-﻿using ErrorLog;
+﻿using TylerBurnett;
 using System;
 using System.Diagnostics;
 
@@ -8,10 +8,11 @@ namespace ConsoleTester
     {
         static void Main(string[] args)
         {
-            ErrorLog.System.OutputPath = "ERRORS.txt";
-            ErrorLog.System.SetFormat(new object[] { new ErrorLog.System.Time(), new ErrorLog.System.Message(), new ErrorLog.System.TargetSite()});
-            ErrorLog.System.AppendFromLastInstance = false;
+            ErrorLog.OutputPath = "ERRORS.txt";
+            ErrorLog.SetFormat(new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite()});
+            ErrorLog.AppendFromLastInstance = false;
 
+            Exception E = new Exception();
 
             Console.WriteLine("Starting Test");
             string[] Array = { "Test", "Test", "Test" };
@@ -27,7 +28,7 @@ namespace ConsoleTester
                 catch (Exception E)
                 {
                     t.Start();
-                    ErrorLog.System.LogError(E);
+                    ErrorLog.LogError(E);
                     t.Stop();
                 }
                 Average += t.ElapsedMilliseconds;

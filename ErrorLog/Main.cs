@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace ErrorLog
+namespace TylerBurnett
 {
-    public class System : IDisposable
+    public class ErrorLog : IDisposable
     {
 
         #region Public Properties
@@ -93,6 +93,21 @@ namespace ErrorLog
 
         }
 
+
+        /// <summary>
+        /// These are the two big daddy parent classes #polymorphism
+        /// </summary>
+        public abstract class StringBaseClass
+        {
+
+            #region Internal Methods
+
+            internal abstract string GetString();
+
+            #endregion Internal Methods
+
+        }
+
         public abstract class ExceptionBaseClass
         {
 
@@ -105,7 +120,7 @@ namespace ErrorLog
         }
 
         /// <summary>
-        /// All these classes are pretty self explanatory, They represent the different types you can
+        /// All these classes are pretty self explanatory, They wrap around the current types in the exception object
         /// access on a normal exception
         /// </summary>
         public class HelpLink : ExceptionBaseClass
@@ -206,20 +221,6 @@ namespace ErrorLog
 
         }
 
-        /// <summary>
-        /// These are the two big daddy parent classes #polymorphism
-        /// </summary>
-        public abstract class StringBaseClass
-        {
-
-            #region Internal Methods
-
-            internal abstract string GetString();
-
-            #endregion Internal Methods
-
-        }
-
         public class TargetSite : ExceptionBaseClass
         {
 
@@ -228,6 +229,20 @@ namespace ErrorLog
             internal override String GetString(Exception Error)
             {
                 return Error.TargetSite.ToString();
+            }
+
+            #endregion Internal Methods
+
+        }
+
+        public class HashCode : ExceptionBaseClass
+        {
+
+            #region Internal Methods
+
+            internal override String GetString(Exception Error)
+            {
+                return Error.GetHashCode().ToString();
             }
 
             #endregion Internal Methods
@@ -302,7 +317,7 @@ namespace ErrorLog
             /// <returns>Boolean</returns>
             public static bool CanAccessFile()
             {
-                if (System.OutputPath.Length > 0)
+                if (ErrorLog.OutputPath.Length > 0)
                 {
                     if (!File.Exists(OutputPath))
                     {
@@ -405,7 +420,7 @@ namespace ErrorLog
                         try
                         {
                             // Finally Write the Data and clear the current writeQueue
-                            File.AppendAllText(System.OutputPath, string.Join(Environment.NewLine, WriteQueue.ToArray()));
+                            File.AppendAllText(ErrorLog.OutputPath, string.Join(Environment.NewLine, WriteQueue.ToArray()));
                             WriteQueue.Clear();
                         }
                         catch (Exception E)
@@ -430,7 +445,6 @@ namespace ErrorLog
             #endregion Private Fields
 
         }
-
         #endregion Internal Classes
 
     }
