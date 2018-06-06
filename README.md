@@ -4,13 +4,12 @@ A lightweight library for handling and outputting application errors.
 ## Abilities
 - Full customisability of ouput format 
 - Append from last program instance or remove previous errror file
-- Lightweight with average Writelog time of only 6ms (Including IO fluctuations, test was a thousand itterations)
+- Lightweight with average Writelog time of only 324 ticks (10,000,000 ticks in a second)
 - Disposeability
-- IO safe, various protections have been put in place to prevent IO ouput issues as they can be a large issue for such a simple task.
 
 ## Usage
 This library has a very quick setup with only the need of only 3 lines of code to initiate it. If not less.
-If you choose to not set these variables, the library will automatically revert to presets.
+If you choose to not set these variables, the library will automatically use presets.
 
 ```
 ErrorLog.OutputPath = "ErrorFile.txt";
