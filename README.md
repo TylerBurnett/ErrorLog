@@ -43,6 +43,7 @@ Errorlog wraps around the pre-exsisting data types found inside the Exception cl
 - ```ErrorLog.StackTrace()```
 - ```ErrorLog.TargetSite()```
 - ```ErrorLog.Hresult()```
+- ```ErrorLog.HashCode()```
 
 Aswell as this there is also the inclusion of two extra types which are:
 - ```ErrorLog.NewLine()```
