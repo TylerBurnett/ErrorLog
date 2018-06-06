@@ -1,45 +1,47 @@
-﻿using TylerBurnett;
-using System;
+﻿using System;
 using System.Diagnostics;
+using System.IO;
+using TylerBurnett;
 
 namespace ConsoleTester
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            ErrorLog.OutputPath = "ERRORS.txt";
-            ErrorLog.SetFormat(new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite()});
+            // Library Variables
+            ErrorLog.OutputPath = "ErrorLog.txt";
+            ErrorLog.ErrorFormat = (new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite() });
             ErrorLog.AppendFromLastInstance = false;
 
-            Exception E = new Exception();
+            // Stopwatch and counter
+            Stopwatch S = new Stopwatch();
+            long count = 0;
 
-            Console.WriteLine("Starting Test");
-            string[] Array = { "Test", "Test", "Test" };
-            Stopwatch t = new Stopwatch();
-            long Average = 0;
 
-            for (int i = 0; i != 20; i++)
+            //Repetitive Log Test
+            int[] Array = new int[0];
+            for (int i = 0; i != 1000; i++)
             {
                 try
                 {
-                    string S = Array[300];
+                    int b = Array[10];
                 }
-                catch (Exception E)
+                catch (Exception e)
                 {
-                    t.Start();
-                    ErrorLog.LogError(E);
-                    t.Stop();
-                }
-                Average += t.ElapsedMilliseconds;
-                Console.WriteLine(t.ElapsedMilliseconds);
-                t.Reset();
+                    S.Start();
+                    ErrorLog.LogError(e);
+                    S.Stop();
+                    count += S.ElapsedTicks;
+                    Console.WriteLine(S.ElapsedTicks);
+                    S.Reset();
+                }                
             }
-
-            Console.WriteLine("Average Write Time in MS: " + Average / 20);
-
+            Console.WriteLine("Average Time = " + count / 1000);
 
             Console.ReadKey();
         }
+
+       
     }
 }
