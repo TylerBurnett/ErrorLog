@@ -47,7 +47,33 @@ Errorlog wraps around the pre-exsisting data types found inside the Exception cl
 Aswell as this there is also the inclusion of two extra types which are:
 - ```ErrorLog.NewLine()```
 - ```ErrorLog.Time()```
-
-The NewLine type is pretty self explanatory but the Time type not as much
+Newline Creates a Newline between the next piece of information
 The time object will take a normal string which represents the time format you want to use. Just like ```DateTime.ToStringFormat()```
+
+## Using the string processing pipeline
+This library gives full customisation of the final output string if desired through the use of a pipeline setup.
+This string customisation is done after the arrangement of the error format and before the writing of the actual error.
+Two preset classes are pre defined inside the Errorlog library if you do not wish to customise the output. By default the String processor is used if the variable is null.
+
+### Sample code
+```
+    public class CustomStringProcessor : ErrorLog.StringFormatPipeline
+    {
+        public override string ProcessString(String[] UnprocessedString)
+        {
+
+            //
+            //
+            //.....
+
+            return "The processed string" ;
+        }
+    }
+    
+    //...
+    //
+    
+    ErrorLog.ProcessorObject = new CustomStringProcessor();
+```
+
 
