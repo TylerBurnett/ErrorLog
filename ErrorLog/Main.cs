@@ -1,6 +1,9 @@
-﻿using System;
+﻿//#define DEBUG
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Web.Script.Serialization;
 
 namespace TylerBurnett
 {
@@ -8,20 +11,29 @@ namespace TylerBurnett
     {
         #region Public Properties
 
+        // Append to the errorlog from the last program instance?
         public static bool AppendFromLastInstance { get; set; }
 
+        // The Arrangement of the error format
         public static object[] ErrorFormat { get; set; }
 
+        // The errors output text file location
         public static string OutputPath { get; set; }
+
+        // Incase you want to customise the format of the string written
+        public static object StringFormat { get; set; }
 
         #endregion Public Properties
 
         #region Internal Fields
 
+        // Used to check if we have a IO stream setup yet
         internal static bool Initialized = false;
 
+        // The Internal filestream (Gets initialized in LogError())
         internal static FileStream OutputStream = null;
 
+        // Backup format incase they dont specify one
         internal static object[] PresetFormat = new object[] { new Time { DateFormat = "MM:DD:HH:mm" }, new Message(), new TargetSite(), new Source() };
 
         #endregion Internal Fields
@@ -29,13 +41,13 @@ namespace TylerBurnett
         #region Public Methods
 
         /// <summary>
-        /// Front end function for recieving and formatting and writing the error (Will be changed with the addition of xml and json)
+        /// Main Function, Takes error -> Prepares it for the format processor -> String gets
+        /// processed by class -> Writes string.
         /// </summary>
         /// <param name="Error">The exception object</param>
         public static void LogError(Exception Error)
         {
-            StringBuilder ErrorMessage = new StringBuilder();
-            object[] _ErrorFormat;
+            object[] StringSequence;
 
             // Initialise the Output File beforehand
             if (Initialized == false)
@@ -47,37 +59,60 @@ namespace TylerBurnett
             // Check class isnt empty before running
             if (ErrorFormat == null || ErrorFormat.Length == 0)
             {
-                _ErrorFormat = PresetFormat;
+                StringSequence = PresetFormat;
             }
             else
             {
-                _ErrorFormat = ErrorFormat;
+                StringSequence = ErrorFormat;
             }
 
-            foreach (object FormatObject in _ErrorFormat)
+            // The raw unprocessed string array
+            string[] RawString = new string[StringSequence.Length];
+
+            //Prepare string for processing
+            for (int I = 0; I != StringSequence.Length; I++)
             {
-                Type FormateType = FormatObject.GetType();
+                Type FormateType = StringSequence[I].GetType();
 
                 if (FormateType.IsSubclassOf(typeof(ExceptionBaseClass)))
                 {
-                    ErrorMessage.Append(((ExceptionBaseClass)FormatObject).GetString(Error));
+                    RawString[I] = ((ExceptionBaseClass)StringSequence[I]).GetString(Error);
                 }
                 else if (FormateType.IsSubclassOf(typeof(StringBaseClass)))
                 {
-                    ErrorMessage.Append(((StringBaseClass)FormatObject).GetString());
+                    RawString[I] = ((StringBaseClass)StringSequence[I]).GetString();
                 }
                 else
                 {
                     throw new InvalidObjectException(FormateType.Name);
                 }
-
-                ErrorMessage.Append(", ");
             }
-            ErrorMessage.Append(Environment.NewLine);
 
-            byte[] Info = new UTF8Encoding(true).GetBytes(ErrorMessage.ToString());
-            OutputStream.Write(Info, 0, Info.Length);
-            OutputStream.Flush();
+            // The processed string
+            String ProcessedString = null;
+
+            // If the format is null, they obviously want the string format
+            if (StringFormat == null)
+            {
+                ProcessedString = ((StringFormatPipeline)new StringProcessor()).ProcessString(RawString);
+            }
+
+            // Else if the class is a subclass of the ErrorFormatPipeline, They want a processed string
+            else if (StringFormat.GetType().IsSubclassOf(typeof(StringFormatPipeline)))
+            {
+                ProcessedString = ((StringFormatPipeline)StringFormat).ProcessString(RawString);
+            }
+
+            // Else if the type isnt a subclass of ErrorFormatPipeline, They obviously doing the
+            // wrong thing
+            else if (!StringFormat.GetType().IsSubclassOf(typeof(StringFormatPipeline)))
+            {
+                throw new InvalidObjectException(StringFormat.GetType().Name);
+            }
+
+            // Finally write the data
+            byte[] Data = new UTF8Encoding(true).GetBytes(ProcessedString);
+            OutputStream.Write(Data, 0, Data.Length);
         }
 
         /// <summary>
@@ -94,9 +129,8 @@ namespace TylerBurnett
         #region Internal Methods
 
         /// <summary>
-        /// Checks the current accessability of the desired file
+        /// Opens the IO stream safely for logging those errors, Also Creates file if it doesnt exsist.
         /// </summary>
-        /// <returns>Boolean</returns>
         internal static void OpenFile()
         {
             FileInfo OutputFileInfo;
@@ -127,6 +161,65 @@ namespace TylerBurnett
         #region Public Classes
 
         /// <summary>
+        /// Abstract StringFormatPipeline parent and subclasses
+        /// </summary>
+        public abstract class StringFormatPipeline
+        {
+            #region Public Methods
+
+            public abstract string ProcessString(string[] RawError);
+
+            #endregion Public Methods
+        }
+
+        //Processes in the generice string format (Part of string process pipeline)
+        public class StringProcessor : StringFormatPipeline
+        {
+            #region Public Methods
+
+            public override string ProcessString(string[] RawError)
+            {
+                StringBuilder ErrorMessage = new StringBuilder();
+
+                for (int I = 0; I != RawError.Length; I++)
+                {
+                    ErrorMessage.Append(RawError[I] + ", ");
+
+                    if (I != RawError.Length)
+                    {
+                        ErrorMessage.Append(", ");
+                    }
+                }
+
+                return ErrorMessage.ToString();
+            }
+
+            #endregion Public Methods
+        }
+
+        // Formats as a json (Part of string process pipeline)
+        public class JsonProcessor : StringFormatPipeline
+        {
+            #region Public Methods
+
+            public override string ProcessString(string[] RawError)
+            {
+                JsonClass JsonObject = new JsonClass();
+
+                foreach (string S in RawError)
+                {
+                    JsonObject.ErrorData.Add(S);
+                }
+
+                JavaScriptSerializer Json = new JavaScriptSerializer();
+
+                return Json.Serialize(JsonObject);
+            }
+
+            #endregion Public Methods
+        }
+
+        /// <summary>
         /// Abstract Exception parent and sub classes
         /// </summary>
         public abstract class ExceptionBaseClass
@@ -134,25 +227,6 @@ namespace TylerBurnett
             #region Internal Methods
 
             internal abstract string GetString(Exception Error);
-
-            #endregion Internal Methods
-        }
-
-        public class HashCode : ExceptionBaseClass
-        {
-            #region Internal Methods
-
-            internal override String GetString(Exception Error)
-            {
-                try
-                {
-                    return Error.GetHashCode().ToString();
-                }
-                catch
-                {
-                    return "HashCode was not found in exception object";
-                }
-            }
 
             #endregion Internal Methods
         }
@@ -170,6 +244,25 @@ namespace TylerBurnett
                 catch
                 {
                     return "Data was not found in exception object";
+                }
+            }
+
+            #endregion Internal Methods
+        }
+
+        public class HashCode : ExceptionBaseClass
+        {
+            #region Internal Methods
+
+            internal override String GetString(Exception Error)
+            {
+                try
+                {
+                    return Error.GetHashCode().ToString();
+                }
+                catch
+                {
+                    return "HashCode was not found in exception object";
                 }
             }
 
@@ -302,18 +395,6 @@ namespace TylerBurnett
             #endregion Internal Methods
         }
 
-        /// <summary>
-        /// Abstract string parent and sub-classes
-        /// </summary>
-        public abstract class StringBaseClass
-        {
-            #region Internal Methods
-
-            internal abstract string GetString();
-
-            #endregion Internal Methods
-        }
-
         public class TargetSite : ExceptionBaseClass
         {
             #region Internal Methods
@@ -329,6 +410,18 @@ namespace TylerBurnett
                     return "TargetSite was not found in exception object";
                 }
             }
+
+            #endregion Internal Methods
+        }
+
+        /// <summary>
+        /// Abstract string parent and sub-classes
+        /// </summary>
+        public abstract class StringBaseClass
+        {
+            #region Internal Methods
+
+            internal abstract string GetString();
 
             #endregion Internal Methods
         }
@@ -376,6 +469,16 @@ namespace TylerBurnett
             }
 
             #endregion Public Constructors
+        }
+
+        // Small class thats used for json serialization
+        internal class JsonClass
+        {
+            #region Internal Properties
+
+            internal List<string> ErrorData { get; set; }
+
+            #endregion Internal Properties
         }
 
         #endregion Internal Classes

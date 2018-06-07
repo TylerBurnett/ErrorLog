@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using TylerBurnett;
 
 namespace ConsoleTester
@@ -18,7 +17,6 @@ namespace ConsoleTester
             Stopwatch S = new Stopwatch();
             long count = 0;
 
-
             //Repetitive Log Test
             int[] Array = new int[0];
             for (int i = 0; i != 1000; i++)
@@ -35,13 +33,11 @@ namespace ConsoleTester
                     count += S.ElapsedTicks;
                     Console.WriteLine(S.ElapsedTicks);
                     S.Reset();
-                }                
+                }
             }
             Console.WriteLine("Average Time = " + count / 1000);
 
             Console.ReadKey();
         }
-
-       
     }
 }
