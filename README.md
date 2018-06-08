@@ -1,19 +1,18 @@
 # ErrorLog
-A lightweight library for handling and outputting application errors.
+Errorlog is a super flexible, optimized, customiseable library for: Arranging, Processing, and Writing Exception objects directly to IO. 
 
-## Abilities
-- Full customisability of ouput format 
-- Append from last program instance or remove previous errror file
-- Lightweight with average Writelog time of only 324 ticks (10,000,000 ticks in a second)
-- Disposeability
+## Simplicity and customiseability combined
+Errorlog uses a polymorphic class structure to enable devs to further extend and customise the arrangement and final output of the exception objects before they are written to IO.
 
-## Usage
+At the same time Errorlog also offers little setup if that is also desired for the user.
+
+## Quick start (Minimal setup)
 This library has a very quick setup with only the need of only 3 lines of code to initiate it. If not less.
 If you choose to not set these variables, the library will automatically use presets.
 
 ```
 ErrorLog.OutputPath = "ErrorFile.txt";
-ErrorLog.SetFormat(new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite()});
+ErrorLog.ErrorFormat = new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite()};
 ErrorLog.AppendFromLastInstance = false;
 ```
 
@@ -30,7 +29,7 @@ When an error does happen all that is needed is a simple pass of the exception o
   }
 ```
 
-### Formatting the error strings
+### Exception arrangement
 Errorlog wraps around the pre-exsisting data types found inside the Exception class
 
 - ```ErrorLog.Data()```
@@ -50,12 +49,10 @@ Aswell as this there is also the inclusion of two extra types which are:
 Newline Creates a Newline between the next piece of information
 The time object will take a normal string which represents the time format you want to use. Just like ```DateTime.ToStringFormat()```
 
-## Using the string processing pipeline
-This library gives full customisation of the final output string if desired through the use of a pipeline setup.
-This string customisation is done after the arrangement of the error format and before the writing of the actual error.
-Two preset classes are pre defined inside the Errorlog library if you do not wish to customise the output. By default the String processor is used if the variable is null.
+## Extending the library for custom needs
+Since this library aim is to be lightweight and independant, certain aspects like json serialization and xml serialization have been
+left for the user to implement. For example use with json.net for json serialization. Changing the final format of the data can be done easily as shown below.
 
-### Sample code
 ```
     public class CustomStringProcessor : ErrorLog.StringFormatPipeline
     {
@@ -73,7 +70,35 @@ Two preset classes are pre defined inside the Errorlog library if you do not wis
     //...
     //
     
+    // set new class for string processing
     ErrorLog.ProcessorObject = new CustomStringProcessor();
+```
+
+This same class system can be used to add custom arrangement parts for exception arrangement too.
+
+```
+    public class CustomStringFormat : ErrorLog.StringBaseClass
+    {
+        public override string GetString()
+        {
+
+            return "Your stuff" ;
+        }
+    }
+    
+    public class CustomExceptionFormat : ErrorLog.ExceptionBaseClass
+    {
+        public override string GetString(Exception Error)
+        {
+
+            return "Your stuff" ;
+        }
+    }
+
+
+    // set new class for string processing
+    ErrorLog.ErrorFormat = new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite(),
+    new CustomStringFormat(), new CustomExceptionFormat()};
 ```
 
 
