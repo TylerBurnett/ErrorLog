@@ -88,7 +88,7 @@ namespace TylerBurnett
                 string ProcessedString = ((StringFormatPipeline)ChosenProcessorObject).ProcessString(RawString);
 
                 // Write the Processed string
-                byte[] Data = new UTF8Encoding(EncoderShouldEmitUTF8Identifier).GetBytes(ProcessedString);
+                byte[] Data = new UTF8Encoding(true).GetBytes(ProcessedString);
                 OutputStream.Write(Data, 0, Data.Length);
                 OutputStream.Flush();
             }
