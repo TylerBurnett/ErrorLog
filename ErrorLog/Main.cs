@@ -1,9 +1,7 @@
-﻿//#define DEBUG
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Web.Script.Serialization;
 
 namespace TylerBurnett
 {
@@ -21,7 +19,7 @@ namespace TylerBurnett
         public static string OutputPath { get; set; }
 
         // Incase you want to customise the format of the string written
-        public static object StringFormat { get; set; }
+        public static object ProcessorObject { get; set; }
 
         #endregion Public Properties
 
@@ -34,20 +32,21 @@ namespace TylerBurnett
         internal static FileStream OutputStream = null;
 
         // Backup format incase they dont specify one
-        internal static object[] PresetFormat = new object[] { new Time { DateFormat = "MM:DD:HH:mm" }, new Message(), new TargetSite(), new Source() };
+        internal static object[] PresetFormat = new object[] { new Time { DateFormat = "DD:HH:mm" }, new Message(), new TargetSite(), new Source() };
 
         #endregion Internal Fields
 
         #region Public Methods
 
         /// <summary>
-        /// Main Function, Takes error -> Prepares it for the format processor -> String gets
-        /// processed by class -> Writes string.
+        /// Main Function, Takes error -&gt; Prepares it for the format processor -&gt; String gets
+        /// processed by class -&gt; Writes string.
         /// </summary>
         /// <param name="Error">The exception object</param>
         public static void LogError(Exception Error)
         {
-            object[] StringSequence;
+            // Why would you even?
+            if (Error == null) throw new InvalidObjectException("Exception object equals null");
 
             // Initialise the Output File beforehand
             if (Initialized == false)
@@ -57,62 +56,46 @@ namespace TylerBurnett
             }
 
             // Check class isnt empty before running
-            if (ErrorFormat == null || ErrorFormat.Length == 0)
-            {
-                StringSequence = PresetFormat;
-            }
-            else
-            {
-                StringSequence = ErrorFormat;
-            }
+            object[] ChosenFormat = ErrorFormat ?? PresetFormat;
 
             // The raw unprocessed string array
-            string[] RawString = new string[StringSequence.Length];
+            string[] RawString = new string[ChosenFormat.Length];
 
             //Prepare string for processing
-            for (int I = 0; I != StringSequence.Length; I++)
+            for (int i = 0; i != ChosenFormat.Length; i++)
             {
-                Type FormateType = StringSequence[I].GetType();
-
-                if (FormateType.IsSubclassOf(typeof(ExceptionBaseClass)))
+                if (ChosenFormat[i] is ExceptionBaseClass)
                 {
-                    RawString[I] = ((ExceptionBaseClass)StringSequence[I]).GetString(Error);
+                    RawString[i] = ((ExceptionBaseClass)ChosenFormat[i]).GetString(Error);
                 }
-                else if (FormateType.IsSubclassOf(typeof(StringBaseClass)))
+                else if (ChosenFormat[i] is StringBaseClass)
                 {
-                    RawString[I] = ((StringBaseClass)StringSequence[I]).GetString();
+                    RawString[i] = ((StringBaseClass)ChosenFormat[i]).GetString();
                 }
                 else
                 {
-                    throw new InvalidObjectException(FormateType.Name);
+                    throw new InvalidObjectException(ChosenFormat[i].GetType().Name);
                 }
             }
 
-            // The processed string
-            String ProcessedString = null;
+            // Check if the String Process pipeline is null before using presets
+            object ChosenProcessorObject = ProcessorObject ?? new StringProcessor();
 
-            // If the format is null, they obviously want the string format
-            if (StringFormat == null)
+            // Check its a subtype before messin with it
+            if (ChosenProcessorObject is StringFormatPipeline)
             {
-                ProcessedString = ((StringFormatPipeline)new StringProcessor()).ProcessString(RawString);
-            }
+                // Revert to presets if function is null, else use their code
+                string ProcessedString = ((StringFormatPipeline)ChosenProcessorObject).ProcessString(RawString);
 
-            // Else if the class is a subclass of the ErrorFormatPipeline, They want a processed string
-            else if (StringFormat.GetType().IsSubclassOf(typeof(StringFormatPipeline)))
+                // Write the Processed string
+                byte[] Data = new UTF8Encoding(EncoderShouldEmitUTF8Identifier).GetBytes(ProcessedString);
+                OutputStream.Write(Data, 0, Data.Length);
+                OutputStream.Flush();
+            }
+            else
             {
-                ProcessedString = ((StringFormatPipeline)StringFormat).ProcessString(RawString);
+                throw new InvalidObjectException(String.Format("{0} is not a child type of StringFormatPipeline(), Only child classes can be used in string processing.", ChosenProcessorObject.GetType().Name));
             }
-
-            // Else if the type isnt a subclass of ErrorFormatPipeline, They obviously doing the
-            // wrong thing
-            else if (!StringFormat.GetType().IsSubclassOf(typeof(StringFormatPipeline)))
-            {
-                throw new InvalidObjectException(StringFormat.GetType().Name);
-            }
-
-            // Finally write the data
-            byte[] Data = new UTF8Encoding(true).GetBytes(ProcessedString);
-            OutputStream.Write(Data, 0, Data.Length);
         }
 
         /// <summary>
@@ -167,7 +150,7 @@ namespace TylerBurnett
         {
             #region Public Methods
 
-            public abstract string ProcessString(string[] RawError);
+            public abstract string ProcessString(string[] UnprocessedString);
 
             #endregion Public Methods
         }
@@ -183,37 +166,16 @@ namespace TylerBurnett
 
                 for (int I = 0; I != RawError.Length; I++)
                 {
-                    ErrorMessage.Append(RawError[I] + ", ");
+                    ErrorMessage.Append(RawError[I]);
 
                     if (I != RawError.Length)
                     {
                         ErrorMessage.Append(", ");
                     }
                 }
+                ErrorMessage.Append(Environment.NewLine);
 
                 return ErrorMessage.ToString();
-            }
-
-            #endregion Public Methods
-        }
-
-        // Formats as a json (Part of string process pipeline)
-        public class JsonProcessor : StringFormatPipeline
-        {
-            #region Public Methods
-
-            public override string ProcessString(string[] RawError)
-            {
-                JsonClass JsonObject = new JsonClass();
-
-                foreach (string S in RawError)
-                {
-                    JsonObject.ErrorData.Add(S);
-                }
-
-                JavaScriptSerializer Json = new JavaScriptSerializer();
-
-                return Json.Serialize(JsonObject);
             }
 
             #endregion Public Methods
@@ -237,14 +199,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.Data.ToString();
-                }
-                catch
-                {
-                    return "Data was not found in exception object";
-                }
+                return Error.Data.ToString() ?? "Data was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -256,14 +211,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.GetHashCode().ToString();
-                }
-                catch
-                {
-                    return "HashCode was not found in exception object";
-                }
+                return Error.GetHashCode().ToString() ?? "HashCode was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -275,14 +223,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.HelpLink.ToString();
-                }
-                catch
-                {
-                    return "HelpLink was not found in exception object";
-                }
+                return Error.HelpLink.ToString() ?? "HelpLink was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -294,14 +235,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.HResult.ToString();
-                }
-                catch
-                {
-                    return "HResult was not found in exception object";
-                }
+                return Error.HResult.ToString() ?? "HResult was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -313,14 +247,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.InnerException.ToString();
-                }
-                catch
-                {
-                    return "InnerException was not found in exception object";
-                }
+                return Error.InnerException.ToString() ?? "InnerException was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -332,26 +259,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.Message.ToString();
-                }
-                catch
-                {
-                    return "Message was not found in exception object";
-                }
-            }
-
-            #endregion Internal Methods
-        }
-
-        public class NewLine : ExceptionBaseClass
-        {
-            #region Internal Methods
-
-            internal override String GetString(Exception Error)
-            {
-                return Environment.NewLine;
+                return Error.Message.ToString() ?? "Message was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -363,14 +271,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.Source.ToString();
-                }
-                catch
-                {
-                    return "Source was not found in exception object";
-                }
+                return Error.Source.ToString() ?? "Source was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -382,14 +283,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.StackTrace.ToString();
-                }
-                catch
-                {
-                    return "StackTrace was not found in exception object";
-                }
+                return Error.StackTrace.ToString() ?? "StackTrace was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -401,14 +295,7 @@ namespace TylerBurnett
 
             internal override String GetString(Exception Error)
             {
-                try
-                {
-                    return Error.TargetSite.ToString();
-                }
-                catch
-                {
-                    return "TargetSite was not found in exception object";
-                }
+                return Error.TargetSite.ToString() ?? "TargetSite was not found in exception object";
             }
 
             #endregion Internal Methods
@@ -438,14 +325,19 @@ namespace TylerBurnett
 
             internal override String GetString()
             {
-                try
-                {
-                    return DateTime.Now.ToString(DateFormat);
-                }
-                catch
-                {
-                    return DateTime.Now.ToString("MM:DD:HH:mm");
-                }
+                return DateTime.Now.ToString(DateFormat) ?? DateTime.Now.ToString("dd:HH:mm:ss");
+            }
+
+            #endregion Internal Methods
+        }
+
+        public class NewLine : ExceptionBaseClass
+        {
+            #region Internal Methods
+
+            internal override String GetString(Exception Error)
+            {
+                return Environment.NewLine;
             }
 
             #endregion Internal Methods
@@ -463,22 +355,10 @@ namespace TylerBurnett
         {
             #region Public Constructors
 
-            public InvalidObjectException(string ObjectName)
-            : base(String.Format("Object type: {0} invalid. Internal objects of Errorlog can only be used in error format", ObjectName))
-            {
-            }
+            public InvalidObjectException(string Message)
+            : base(Message) { }
 
             #endregion Public Constructors
-        }
-
-        // Small class thats used for json serialization
-        internal class JsonClass
-        {
-            #region Internal Properties
-
-            internal List<string> ErrorData { get; set; }
-
-            #endregion Internal Properties
         }
 
         #endregion Internal Classes

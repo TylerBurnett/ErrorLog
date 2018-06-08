@@ -8,16 +8,18 @@ namespace ConsoleTester
     {
         private static void Main(string[] args)
         {
+            //ErrorLog.ProcessorObject = new ErrorLog.JsonProcessor();
+            object[] CustomFormat = new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite() };
+            string CustomPath =  "ErrorLog.txt";
+
             // Library Variables
-            ErrorLog.OutputPath = "ErrorLog.txt";
-            ErrorLog.ErrorFormat = (new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite() });
+            ErrorLog.OutputPath = CustomPath;
+            ErrorLog.ErrorFormat = CustomFormat;
             ErrorLog.AppendFromLastInstance = false;
 
-            // Stopwatch and counter
             Stopwatch S = new Stopwatch();
-            long count = 0;
+            long I = 0;
 
-            //Repetitive Log Test
             int[] Array = new int[0];
             for (int i = 0; i != 1000; i++)
             {
@@ -30,14 +32,74 @@ namespace ConsoleTester
                     S.Start();
                     ErrorLog.LogError(e);
                     S.Stop();
-                    count += S.ElapsedTicks;
-                    Console.WriteLine(S.ElapsedTicks);
-                    S.Reset();
+                }
+                I += S.ElapsedTicks;
+                Console.WriteLine(S.ElapsedTicks);
+                S.Reset();
+            }
+            Console.WriteLine("Average time :" + I / 1000);
+
+            Console.WriteLine("Done");
+            Console.ReadKey();
+        }
+
+        public static void RepetitionTest()
+        {
+
+            int[] Array = new int[0];
+            for (int i = 0; i != 1000; i++)
+            {
+                try
+                {
+                    int b = Array[10];
+                }
+                catch (Exception e)
+                {
+                    ErrorLog.LogError(e);
                 }
             }
-            Console.WriteLine("Average Time = " + count / 1000);
+        }
 
-            Console.ReadKey();
+        public static void EmptyErrorTest()
+        {
+            Exception E = new Exception();
+
+            try
+            {
+                ErrorLog.LogError(E);
+            }
+            catch
+            {
+                Console.WriteLine("Error Caught by library");
+            }
+        }
+
+        public static void EmptyErrorFormatTest(object[] OldFormat)
+        {
+            ErrorLog.ErrorFormat = null;
+            // Used to check that it recognises the changes
+            ErrorLog.LogError(new FormatException());
+            ErrorLog.ErrorFormat = (new object[] { new ErrorLog.Time(), new ErrorLog.Message(), new ErrorLog.TargetSite() });
+        }
+
+        public static void InvalidOutputPathTest(string OldPath)
+        {
+            ErrorLog.OutputPath = "";
+            ErrorLog.LogError(new FormatException());
+            ErrorLog.OutputPath = OldPath;
+        }
+    }
+
+    public class CustomStringProcessor : ErrorLog.StringFormatPipeline
+    {
+        public override string ProcessString(String[] UnprocessedString)
+        {
+
+            //
+            //
+            //.....
+
+            return "The processed string";
         }
     }
 }
